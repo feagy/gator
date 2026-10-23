@@ -6,7 +6,7 @@ import (
     "github.com/feagy/gator/internal/database"
     "fmt"
     "os"
-    "sql"
+    "database/sql"
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 
     s := state{
         cfg: &cfg,
-        db: dbQueries
+        db: dbQueries,
     }
 
     c := commands{
@@ -33,6 +33,7 @@ func main() {
     }
     
     c.register("login", handlerLogin)
+    c.register("register", handlerRegister)
 
     args := os.Args
     if len(args) < 2 {
