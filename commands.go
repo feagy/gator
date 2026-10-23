@@ -34,11 +34,15 @@ func handlerLogin(s *state, cmd command) error {
     if len(cmd.arguments) == 0 {
         return errors.New("the login command expects a single argument, the username.")
     }
-    user, err := s.db.GetUser(context.Background(), cmd.arguments[0])
+    _, err := s.db.GetUser(context.Background(), cmd.arguments[0])
     if err != nil {
         return err
     }
-    s.cfg.SetUser(cmd.arguments[0])
+    err = s.cfg.SetUser(cmd.arguments[0])
+    if err != nil {
+        return err
+    }
+
     fmt.Println("you have logged in")
     return nil
 }
@@ -47,11 +51,25 @@ func handlerRegister(s *state, cmd command) error {
     if len(cmd.arguments) == 0 {
         return errors.New("the login command expects a single argument, the username.")
     }
-    user, err := s.db.CreateUser(context.Background(), database.CreateUserParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0],})
+    _, err := s.db.CreateUser(context.Background(), database.CreateUserParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0],})
     if err != nil {
         return err
     }
-    s.cfg.SetUser(cmd.arguments[0])
+
+    err = s.cfg.SetUser(cmd.arguments[0])
+    if err != nil {
+        return err
+    }
+
     fmt.Println("new user created and logged in")
+    return nil
+}
+
+func handlerReset(s *state, cmd command) error {
+    err := s.db.DeleteUsers(context.Background())
+    if err != nil {
+        return err
+    }
+    fmt.Println("all users deleted")
     return nil
 }
