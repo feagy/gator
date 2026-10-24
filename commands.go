@@ -7,6 +7,7 @@ import (
     "time"
     "github.com/google/uuid"
     "github.com/feagy/gator/internal/database"
+    "github.com/feagy/gator/internal/rssfeed"
 )
 
 type command struct {
@@ -93,5 +94,14 @@ func handlerUsers(s *state, cmd command) error {
         } 
         fmt.Printf("* %v\n", user.Name)
     }
+    return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+    rssFeed, err := rssfeed.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+    if err != nil {
+        return err
+    }
+    fmt.Println(rssFeed)
     return nil
 }
