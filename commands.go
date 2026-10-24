@@ -116,11 +116,31 @@ func handlerAddFeed(s *state, cmd command) error {
         return err
     }
 
-    feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0], Url:cmd.arguments[1], UserID:user.ID})
+    _, err = s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0], Url:cmd.arguments[1], UserID:user.ID})
     if err != nil {
         return err
     }
     
-    fmt.Println(feed)
+    return nil
+}
+
+func handlerFeeds(s *state, cmd command) error {
+    feeds, err := s.db.GetFeeds(context.Background())
+    if err != nil {
+        return err
+    }
+    
+    if len(feeds) == 0 {
+        fmt.Println("There is no feed display")
+        return nil
+    }
+
+    for _, feed := range feeds {
+        user, err := s.db.GetUserById(context.Background(), feed.UserID)
+        if err != nil {
+            return err
+        }
+        fmt.Printf("* Name: %v\n  URL: %v\n  User who created the feed: %v\n", feed.Name, feed.Url, user.Name)
+    }
     return nil
 }
