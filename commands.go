@@ -49,7 +49,7 @@ func handlerLogin(s *state, cmd command) error {
 }
 
 func handlerRegister(s *state, cmd command) error {
-    if len(cmd.arguments) == 0 {
+    if len(cmd.arguments) < 1 {
         return errors.New("the login command expects a single argument, the username.")
     }
     _, err := s.db.CreateUser(context.Background(), database.CreateUserParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0],})
@@ -103,5 +103,24 @@ func handlerAgg(s *state, cmd command) error {
         return err
     }
     fmt.Println(rssFeed)
+    return nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+    if len(cmd.arguments) < 2 {
+        return errors.New("the addfeed command expects 2 arguments, the name of the feed and the url.")
+    }
+    
+    user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+    if err != nil {
+        return err
+    }
+
+    feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0], Url:cmd.arguments[1], UserID:user.ID})
+    if err != nil {
+        return err
+    }
+    
+    fmt.Println(feed)
     return nil
 }
