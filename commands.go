@@ -82,7 +82,7 @@ func handlerUsers(s *state, cmd command) error {
     }
     
     if len(users) == 0 {
-        fmt.Println("There is no user display")
+        fmt.Println("there is no user display")
         return nil
     }
     loggedUser := s.cfg.CurrentUserName
@@ -108,7 +108,7 @@ func handlerAgg(s *state, cmd command) error {
 
 func handlerAddFeed(s *state, cmd command) error {
     if len(cmd.arguments) < 2 {
-        return errors.New("the addfeed command expects 2 arguments, the name of the feed and the url.")
+        return errors.New("the addfeed command expects 2 arguments, the name and the url of the feed .")
     }
     
     user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
@@ -116,11 +116,16 @@ func handlerAddFeed(s *state, cmd command) error {
         return err
     }
 
-    _, err = s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0], Url:cmd.arguments[1], UserID:user.ID})
+    feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), Name:cmd.arguments[0], Url:cmd.arguments[1], UserID:user.ID})
     if err != nil {
         return err
     }
     
+    _, err = s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), UserID:user.ID, FeedID:feed.ID})
+    if err != nil {
+        return err
+    }
+
     return nil
 }
 
@@ -131,7 +136,7 @@ func handlerFeeds(s *state, cmd command) error {
     }
     
     if len(feeds) == 0 {
-        fmt.Println("There is no feed display")
+        fmt.Println("there is no feed display")
         return nil
     }
 
@@ -141,6 +146,52 @@ func handlerFeeds(s *state, cmd command) error {
             return err
         }
         fmt.Printf("* Name: %v\n  URL: %v\n  User who created the feed: %v\n", feed.Name, feed.Url, user.Name)
+    }
+    return nil
+}
+
+func handlerFollow(s *state, cmd command) error {
+    if len(cmd.arguments) < 1 {
+        return errors.New("the addfeed command expects 1 arguments, the url of the feed.")
+    }
+
+    feed, err := s.db.GetFeedByUrl(context.Background(), cmd.arguments[0])
+    if err != nil {
+        return err
+    }
+
+    user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+    if err != nil {
+        return err
+    }
+
+    feedFollowed, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{ID:uuid.New(), CreatedAt:time.Now(), UpdatedAt:time.Now(), UserID:user.ID, FeedID:feed.ID})
+    if err != nil {
+        return err
+    }
+
+    fmt.Println(feedFollowed)
+    return nil
+}
+
+func handlerFollowing(s *state, cmd command) error {
+    user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+    if err != nil {
+        return err
+    }
+
+    feedsFollowed, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+    if err != nil {
+        return err
+    }
+
+    if len(feedsFollowed) == 0 {
+        fmt.Println("you are not following any feeds")
+        return nil
+    }
+    
+    for _, feedFollowed := range feedsFollowed {
+        fmt.Printf("* %v\n", feedFollowed.FeedName)
     }
     return nil
 }
