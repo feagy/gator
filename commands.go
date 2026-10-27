@@ -107,12 +107,47 @@ func handlerUsers(s *state, cmd command) error {
     return nil
 }
 
-func handlerAgg(s *state, cmd command) error {
-    rssFeed, err := rssfeed.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+func scrapeFeeds(s *state) error {
+    feed, err := s.db.GetNextFeedToFetch(context.Background())
     if err != nil {
         return err
     }
-    fmt.Println(rssFeed)
+
+    err = s.db.MarkFeedFetched(context.Background(), feed.ID)
+    if err != nil {
+        return err
+    }
+
+    fetched, err := rssfeed.FetchFeed(context.Background(), feed.Url)
+    if err != nil {
+        return err
+    }
+    
+    for _, item := range fetched.Channel.Item {
+        fmt.Printf("* %v\n", item.Title)    
+    }
+    return nil
+}
+
+func handlerAgg(s *state, cmd command) error {
+    if len(cmd.arguments) < 1 {
+        return errors.New("the agg command expects 1 argument, a value for time between requests like 1s, 1m, 1h.")
+    }
+    
+    timeBetweenRequests, err := time.ParseDuration(cmd.arguments[0])
+    if err != nil {
+        return err
+    }
+
+    fmt.Printf("collecting feeds every %v\n", cmd.arguments[0])
+    ticker := time.NewTicker(timeBetweenRequests)
+    for ; ; <-ticker.C {
+	    err := scrapeFeeds(s)
+        if err != nil {
+            fmt.Println(err)
+        }
+    }
+
     return nil
 }
 
@@ -157,7 +192,7 @@ func handlerFeeds(s *state, cmd command) error {
 
 func handlerFollow(s *state, cmd command, user database.User) error {
     if len(cmd.arguments) < 1 {
-        return errors.New("the addfeed command expects 1 arguments, the url of the feed.")
+        return errors.New("the follow command expects 1 arguments, the url of the feed.")
     }
 
     feed, err := s.db.GetFeedByUrl(context.Background(), cmd.arguments[0])
@@ -193,7 +228,7 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 
 func handlerUnfollow(s *state, cmd command, user database.User) error {
     if len(cmd.arguments) < 1 {
-        return errors.New("the addfeed command expects 1 arguments, the url of the feed.")
+        return errors.New("the unfollow command expects 1 arguments, the url of the feed.")
     }
 
     feed, err := s.db.GetFeedByUrl(context.Background(), cmd.arguments[0])
