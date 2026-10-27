@@ -5,6 +5,9 @@ import (
     "fmt"
     "context"
     "time"
+    "strings"
+    "strconv"
+    "database/sql"
     "github.com/google/uuid"
     "github.com/feagy/gator/internal/database"
     "github.com/feagy/gator/internal/rssfeed"
@@ -124,8 +127,37 @@ func scrapeFeeds(s *state) error {
     }
     
     for _, item := range fetched.Channel.Item {
-        fmt.Printf("* %v\n", item.Title)    
+		publishedAt := sql.NullTime{}
+		if t, err := time.Parse(time.RFC1123Z, item.PubDate); err == nil {
+			publishedAt = sql.NullTime{
+				Time:  t,
+				Valid: true,
+			}
+		}
+        _, err = s.db.CreatePost(context.Background(), 
+                database.CreatePostParams{
+                    ID:uuid.New(),
+                    CreatedAt:time.Now(), 
+                    UpdatedAt:time.Now(), 
+                    Title:item.Title, 
+                    Url:item.Link, 
+                    Description:sql.NullString{
+				        String: item.Description,
+				        Valid:  true,
+			        }, 
+                    PublishedAt:publishedAt, 
+                    FeedID: feed.ID})   
+        
+        if err != nil {
+			if strings.Contains(err.Error(), "duplicate key value violates unique constraint") {
+				continue
+			}
+			fmt.Printf("Couldn't create post: %v\n", err)
+			continue
+		}
     }
+
+    fmt.Printf("Feed %s collected, %v posts found\n", feed.Name, len(fetched.Channel.Item))
     return nil
 }
 
@@ -242,5 +274,31 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
     }
 
     fmt.Println("you are not following the feed anymore")
+    return nil
+}
+
+func handlerBrowse(s *state, cmd command, user database.User) error {
+    limit := 2
+    if len(cmd.arguments) > 0 {
+        userLimit, err := strconv.Atoi(cmd.arguments[0])
+        if err != nil {
+            return err
+        }
+        limit = userLimit
+    }
+
+    posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{UserID:user.ID, Limit:int32(limit)})
+    if err != nil {
+        return err
+    }
+
+    if len(posts) == 0 {
+        fmt.Println("no posts found to display")
+        return nil
+    }
+    
+    for _, post := range posts {
+        fmt.Printf("* title: %v\n  url: %v\n  description: %v\n  published at: %v\n\n", post.Title, post.Url, post.Description, post.PublishedAt)
+    }
     return nil
 }
